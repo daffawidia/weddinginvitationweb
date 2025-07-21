@@ -332,31 +332,41 @@
                     <button class="btn btn-primary">Kirim</button>
                 </div>
             </form>
+        </div>
+    </section>
 
-            <div class="row justify-content-center mt-5">
-                <div class="col-md-6">
-                    <div id="disqus_thread"></div>
-                        <script>
-                            /**
-                            *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
-                            *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables    */
-                            /*
-                            var disqus_config = function () {
-                            this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
-                            this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
-                            };
-                            */
-                            (function() { // DON'T EDIT BELOW THIS LINE
-                                var d = document, s = d.createElement('script');
-                                s.src = 'https://daffa-widia-wedding.disqus.com/embed.js';
-                                s.setAttribute('data-timestamp', +new Date());
-                                (d.head || d.body).appendChild(s);
-                            })();
-                        </script>
-                        <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    <section id="expression" class="expression">
+       <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md8 col-10 text-center">
+                    <h1>Ucapan & Doa</h1>
                 </div>
             </div>
-
+            
+            <div class="wish-form">
+                <div class="form-group">
+                    <label for="wish-message">Tuliskan Ucapan atau Doa Anda</label>
+                    <textarea id="wish-message" placeholder="Tuliskan ucapan bahagia atau doa untuk mempelai..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="wish-image">Tambahkan Foto (Opsional)</label>
+                    <div class="upload-btn">
+                        <button class="btn" id="upload-button">Pilih Gambar</button>
+                        <input type="file" id="wish-image" accept="image/*">
+                    </div>
+                    <div class="image-preview" id="image-preview">
+                        <img id="preview-image" src="#" alt="Preview gambar yang akan diupload" />
+                        <button class="btn" id="remove-image" style="margin-top: 0.5rem;">Hapus Gambar</button>
+                    </div>
+                </div>
+                
+                <button class="btn" id="submit-wish">Kirim Ucapan</button>
+            </div>
+            
+            <div class="wishes-container" id="wishes-container">
+                <!-- Wish cards will be dynamically added here -->
+            </div>
         </div>
     </section>
 
@@ -534,6 +544,255 @@
         namaContainer.innerText = `${pronoun} ${nama},`.replace(/ ,$/, ',');
 
         document.querySelector('#nama').value = nama;
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get sender name from URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            let senderName = urlParams.get('n') || 'Tamu Undangan';
+            
+            // Initialize wishes array from localStorage
+            let wishes = JSON.parse(localStorage.getItem('weddingWishes')) || [];
+            
+            // DOM elements
+            const wishMessage = document.getElementById('wish-message');
+            const wishImage = document.getElementById('wish-image');
+            const submitBtn = document.getElementById('submit-wish');
+            const wishesContainer = document.getElementById('wishes-container');
+            const uploadButton = document.getElementById('upload-button');
+            const imagePreview = document.getElementById('image-preview');
+            const previewImage = document.getElementById('preview-image');
+            const removeImageBtn = document.getElementById('remove-image');
+            
+            let selectedImage = null;
+            
+            // Display existing wishes
+            displayWishes();
+            
+            // Preview image when selected
+            wishImage.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    selectedImage = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        previewImage.src = e.target.result;
+                        imagePreview.style.display = 'block';
+                    };
+                    
+                    reader.readAsDataURL(selectedImage);
+                }
+            });
+            
+            // Remove selected image
+            removeImageBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                wishImage.value = '';
+                selectedImage = null;
+                previewImage.src = '#';
+                imagePreview.style.display = 'none';
+            });
+            
+            // Submit new wish
+            submitBtn.addEventListener('click', function() {
+                const message = wishMessage.value.trim();
+                
+                if (!message) {
+                    alert('Silahkan tuliskan ucapan atau doa Anda terlebih dahulu');
+                    return;
+                }
+                
+                const newWish = {
+                    id: Date.now(),
+                    sender: senderName,
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    reactions: {
+                        like: 0,
+                        love: 0,
+                        pray: 0
+                    },
+                    replies: [],
+                    userReaction: null
+                };
+                
+                // Add image if available
+                if (selectedImage) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        newWish.image = e.target.result;
+                        addWishToStorage(newWish);
+                    };
+                    
+                    reader.readAsDataURL(selectedImage);
+                } else {
+                    addWishToStorage(newWish);
+                }
+            });
+            
+            function addWishToStorage(wish) {
+                wishes.unshift(wish);
+                localStorage.setItem('weddingWishes', JSON.stringify(wishes));
+                
+                // Clear form
+                wishMessage.value = '';
+                wishImage.value = '';
+                selectedImage = null;
+                imagePreview.style.display = 'none';
+                
+                // Update display
+                displayWishes();
+            }
+            
+            function displayWishes() {
+                wishesContainer.innerHTML = '';
+                
+                if (wishes.length === 0) {
+                    wishesContainer.innerHTML = '<p style="text-align: center; color: var(--gray-500);">Belum ada ucapan. Jadilah yang pertama mengucapkan!</p>';
+                    return;
+                }
+                
+                wishes.forEach(wish => {
+                    const wishCard = document.createElement('div');
+                    wishCard.className = 'wish-card';
+                    wishCard.dataset.id = wish.id;
+                    
+                    let imageHtml = '';
+                    if (wish.image) {
+                        imageHtml = `<div class="wish-image">
+                            <img src="${wish.image}" alt="Ucapan dari ${wish.sender}" />
+                        </div>`;
+                    }
+                    
+                    wishCard.innerHTML = `
+                        <div class="wish-header">
+                            <span class="wish-sender">${wish.sender}</span>
+                            <span class="wish-time">${formatDate(wish.timestamp)}</span>
+                        </div>
+                        <div class="wish-message">${wish.message.replace(/\n/g, '<br>')}</div>
+                        ${imageHtml}
+                        <div class="wish-actions">
+                            <button class="action-btn ${wish.userReaction === 'like' ? 'active' : ''}" data-reaction="like">
+                                👍 <span>${wish.reactions.like || ''}</span>
+                            </button>
+                            <button class="action-btn ${wish.userReaction === 'love' ? 'active' : ''}" data-reaction="love">
+                                ❤ <span>${wish.reactions.love || ''}</span>
+                            </button>
+                            <button class="action-btn ${wish.userReaction === 'pray' ? 'active' : ''}" data-reaction="pray">
+                                🤲 <span>${wish.reactions.pray || ''}</span>
+                            </button>
+                            <button class="action-btn reply-btn">Balas</button>
+                        </div>
+                        <div class="reply-form">
+                            <textarea placeholder="Tulis balasan..." class="reply-message"></textarea>
+                            <button class="btn submit-reply">Kirim Balasan</button>
+                        </div>
+                        ${wish.replies.length > 0 ? `
+                            <div class="replies">
+                                ${wish.replies.map(reply => `
+                                    <div class="reply">
+                                        <div><strong>${reply.sender}</strong> <small>${formatDate(reply.timestamp)}</small></div>
+                                        <div>${reply.message.replace(/\n/g, '<br>')}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    wishesContainer.appendChild(wishCard);
+                });
+                
+                // Add event listeners for reaction buttons
+                document.querySelectorAll('.action-btn[data-reaction]').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const wishId = parseInt(this.closest('.wish-card').dataset.id);
+                        const reaction = this.dataset.reaction;
+                        addReaction(wishId, reaction);
+                    });
+                });
+                
+                // Add event listeners for reply buttons
+                document.querySelectorAll('.reply-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const replyForm = this.closest('.wish-card').querySelector('.reply-form');
+                        replyForm.style.display = replyForm.style.display === 'block' ? 'none' : 'block';
+                    });
+                });
+                
+                // Add event listeners for submit reply buttons
+                document.querySelectorAll('.submit-reply').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const wishCard = this.closest('.wish-card');
+                        const wishId = parseInt(wishCard.dataset.id);
+                        const replyMessage = wishCard.querySelector('.reply-message').value.trim();
+                        
+                        if (!replyMessage) {
+                            alert('Silahkan tulis balasan terlebih dahulu');
+                            return;
+                        }
+                        
+                        const reply = {
+                            sender: senderName,
+                            message: replyMessage,
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        addReply(wishId, reply);
+                    });
+                });
+            }
+            
+            function addReaction(wishId, reaction) {
+                const wishIndex = wishes.findIndex(w => w.id === wishId);
+                
+                if (wishIndex !== -1) {
+                    const wish = wishes[wishIndex];
+                    
+                    // If user already reacted, undo that reaction
+                    if (wish.userReaction) {
+                        wish.reactions[wish.userReaction]--;
+                        
+                        // If clicking same reaction, remove it
+                        if (wish.userReaction === reaction) {
+                            wish.userReaction = null;
+                        } else {
+                            wish.userReaction = reaction;
+                            wish.reactions[reaction]++;
+                        }
+                    } else {
+                        // Add new reaction
+                        wish.userReaction = reaction;
+                        wish.reactions[reaction]++;
+                    }
+                    
+                    localStorage.setItem('weddingWishes', JSON.stringify(wishes));
+                    displayWishes();
+                }
+            }
+            
+            function addReply(wishId, reply) {
+                const wishIndex = wishes.findIndex(w => w.id === wishId);
+                
+                if (wishIndex !== -1) {
+                    wishes[wishIndex].replies.push(reply);
+                    localStorage.setItem('weddingWishes', JSON.stringify(wishes));
+                    displayWishes();
+                }
+            }
+            
+            function formatDate(isoString) {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+        });
     </script>
 
 </body>
